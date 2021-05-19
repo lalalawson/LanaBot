@@ -26,6 +26,18 @@ def start(update, context):
     else:
         update.message.reply_text("Sorry " + username + "! This is a private bot so it's not available for your viewing! 😅")
 
+def handsome(update, context):
+    update.message.reply_text("wah handsome")
+
+def cute(update, context):
+    update.message.reply_text("wah cute")
+
+def joke(update, context):
+    update.message.reply_text("joke hahaha joke")
+
+def rant(update, context):
+    update.message.reply_text("time for a rant")
+
 def illegal_user(update, context):
     username = update.effective_user.username
     update.message.reply_text("Sorry " + username + "! This is a private bot so it's not available for your viewing! 😅")
@@ -42,9 +54,18 @@ def main():
     # commands handler
     dispatcher.add_handler(CommandHandler("start", start))
 
-    # message handler
+    # message handler for invalid options
     dispatcher.add_handler(MessageHandler(~Filters.chat(username=allowed_users), illegal_user))
-    dispatcher.add_handler(MessageHandler(~(Filters.regex(message_options[0]) ^ Filters.regex(message_options[1]) ^ Filters.regex(message_options[2]) ^ Filters.regex(message_options[3])), illegal_option))
+    dispatcher.add_handler(MessageHandler(~(Filters.regex(message_options[0]) ^ 
+                                            Filters.regex(message_options[1]) ^ 
+                                            Filters.regex(message_options[2]) ^ 
+                                            Filters.regex(message_options[3])), illegal_option))
+    
+    # message handler for valid options
+    dispatcher.add_handler(MessageHandler(Filters.regex(message_options[0]), handsome))
+    dispatcher.add_handler(MessageHandler(Filters.regex(message_options[1]), cute))
+    dispatcher.add_handler(MessageHandler(Filters.regex(message_options[2]), joke))
+    dispatcher.add_handler(MessageHandler(Filters.regex(message_options[3]), rant))
 
     updater.start_polling()
     updater.idle()
