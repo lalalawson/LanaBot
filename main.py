@@ -6,7 +6,7 @@ from telegram.replykeyboardmarkup import ReplyKeyboardMarkup
 
 load_dotenv()
 
-allowed_users = ["lalalawson", "linawoo"]
+allowed_users = ["linawoo"]
 
 message_options = ["Show me handsome guys!", "Show me something cute!", "Tell me a joke!", "I just wna rant..."]
 
@@ -67,10 +67,10 @@ def main():
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[2]), joke))
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[3]), rant))
 
+    print("Bot polling...")
     updater.start_polling()
     updater.idle()
-
-    print("Bot polling...")
+    print("Exiting bot...")
 
 if __name__ == '__main__':
     main()
