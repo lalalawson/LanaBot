@@ -34,6 +34,7 @@ def test_upload(update, context):
     if msg.photo:
         file_id = msg.photo[-1].file_id
         msg.reply_photo(file_id)
+        print(file_id)
     elif msg.video:
         file_id = msg.video.file_id
         msg.reply_video(file_id)
