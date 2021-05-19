@@ -1,8 +1,7 @@
-from telegram import KeyboardButton, user
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, MessageFilter
+from telegram import KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import os
 from dotenv import load_dotenv
-from telegram.replykeyboardmarkup import ReplyKeyboardMarkup
 
 load_dotenv()
 
