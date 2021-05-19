@@ -5,9 +5,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+allowed_users = ["lalalawson", "linawoo"]
+
 def start(update, context):
-    # username = update.message.
-    update.message.reply_text("Hello")
+    username = update.effective_user.username
+    update.message.reply_text("Hello " + username)
 
 
 def main():
