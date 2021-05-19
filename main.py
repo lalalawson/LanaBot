@@ -1,6 +1,7 @@
 from telegram import KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 import os
+import DbAuth
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -26,7 +27,13 @@ def start(update, context):
         update.message.reply_text("Sorry " + username + "! This is a private bot so it's not available for your viewing! 😅")
 
 def memories(update, context):
-    update.message.reply_text("wah handsome")
+    db = DbAuth.retrieveDb()
+    doc_ref = db.collection(u'memories').document(u'1')
+    doc = doc_ref.get().to_dict()
+    
+    format_date = doc['date'].strftime('%d %b %y')
+    reply = "Remember " + format_date + "?\n" + doc['content'] + "\n-" + doc['author'] 
+    update.message.reply_text(reply)
 
 def cute(update, context):
     update.message.reply_text("wah cute")
