@@ -5,9 +5,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-allowed_users = ["linawoo"]
+allowed_users = ["lalalawson", "linawoo"]
 
-message_options = ["Show me handsome guys!", "Show me something cute!", "Tell me a joke!", "I just wna rant..."]
+message_options = ["Tell me about us.. 😌", "Show me photos! 😆", "Tell me a joke! 😒", "I just wna rant... 😔"]
 
 def start(update, context):
     global reply_keyboard 
@@ -25,7 +25,7 @@ def start(update, context):
     else:
         update.message.reply_text("Sorry " + username + "! This is a private bot so it's not available for your viewing! 😅")
 
-def handsome(update, context):
+def memories(update, context):
     update.message.reply_text("wah handsome")
 
 def cute(update, context):
@@ -61,7 +61,7 @@ def main():
                                             Filters.regex(message_options[3])), illegal_option))
     
     # message handler for valid options
-    dispatcher.add_handler(MessageHandler(Filters.regex(message_options[0]), handsome))
+    dispatcher.add_handler(MessageHandler(Filters.regex(message_options[0]), memories))
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[1]), cute))
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[2]), joke))
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[3]), rant))
