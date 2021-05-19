@@ -1,10 +1,13 @@
 from telegram import KeyboardButton, ReplyKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram.ext import Updater, CommandHandler, ConversationHandler, MessageHandler, Filters
 import os
 import DbAuth
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# states
+CONTENT_REPLY, PHOTO_REPLY, ANSWER = range(3)
 
 allowed_users = ["lalalawson", "linawoo"]
 
@@ -25,6 +28,30 @@ def start(update, context):
             "What do you require today? 😚", reply_markup=reply_keyboard)
     else:
         update.message.reply_text("Sorry " + username + "! This is a private bot so it's not available for your viewing! 😅")
+
+def test_upload(update, context):
+    msg = update.message
+    if msg.photo:
+        file_id = msg.photo[-1].file_id
+        msg.reply_photo(file_id)
+    elif msg.video:
+        file_id = msg.video.file_id
+        msg.reply_video(file_id)
+    elif msg.voice:
+        file_id = msg.voice.file_id
+        msg.reply_voice(file_id)
+    elif msg.video_note:
+        file_id = msg.video_note.file_id
+        msg.reply_video_note(file_id)
+    else:
+        update.message.reply_text("Please upload a photo / video / voice or video note! You may select /cancel to exit.")
+
+def upload(update, context):
+    update.message.reply_text("Ooo!! Uploading a new memory? Send me the description of our day!")
+
+    return CONTENT_REPLY
+
+# def memory_message(update, context):
 
 def memories(update, context):
     db = DbAuth.retrieveDb()
@@ -60,6 +87,9 @@ def main():
     # commands handler
     dispatcher.add_handler(CommandHandler("start", start))
 
+    # testing only
+    dispatcher.add_handler(MessageHandler(Filters.photo | Filters.voice | Filters.video | Filters.video_note, test_upload))
+
     # message handler for invalid options
     dispatcher.add_handler(MessageHandler(~Filters.chat(username=allowed_users), illegal_user))
     dispatcher.add_handler(MessageHandler(~(Filters.regex(message_options[0]) ^ 
@@ -72,6 +102,15 @@ def main():
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[1]), cute))
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[2]), joke))
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[3]), rant))
+
+    # convo handlers
+    # convo1 = ConversationHandler(
+    #     entry_points=[CommandHandler('upload'), upload],
+    #     states={
+    #         CONTENT_REPLY(MessageHandler(Filters.text))
+    #     },
+    #     fallbacks=[],
+    # )
 
     print("Bot polling...")
     updater.start_polling()
