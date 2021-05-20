@@ -1,7 +1,7 @@
+from DbHelper import DbHelper
 from telegram import KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, ConversationHandler, MessageHandler, Filters
 import os
-import DbAuth
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -54,13 +54,21 @@ def upload(update, context):
 
 # def memory_message(update, context):
 
-def memories(update, context):
-    db = DbAuth.retrieveDb()
-    doc_ref = db.collection(u'memories').document(u'1')
-    doc = doc_ref.get().to_dict()
+# def memories(update, context):
+#     db = DbAuth.retrieveDb()
+#     doc_ref = db.collection(u'memories').document(u'1')
+#     doc = doc_ref.get().to_dict()
     
-    format_date = doc['date'].strftime('%d %b %y')
-    reply = "Remember " + format_date + "?\n" + doc['content'] + "\n-" + doc['author'] 
+#     format_date = doc['date'].strftime('%d %b %y')
+#     reply = "Remember " + format_date + "?\n" + doc['content'] + "\n-" + doc['author'] 
+#     update.message.reply_text(reply)
+
+def memories(update, context):
+    db = DbHelper(os.getenv("DATABASE_URL"))
+    memory = db.retrieveMemory()
+    print(memory)
+    format_date = memory[4].strftime('%d %b %y')
+    reply = "Remember " + format_date + "?\n" + memory[2] + "\n-" + memory[1]
     update.message.reply_text(reply)
 
 def cute(update, context):
