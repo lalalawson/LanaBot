@@ -52,17 +52,6 @@ def upload(update, context):
 
     return CONTENT_REPLY
 
-# def memory_message(update, context):
-
-# def memories(update, context):
-#     db = DbAuth.retrieveDb()
-#     doc_ref = db.collection(u'memories').document(u'1')
-#     doc = doc_ref.get().to_dict()
-    
-#     format_date = doc['date'].strftime('%d %b %y')
-#     reply = "Remember " + format_date + "?\n" + doc['content'] + "\n-" + doc['author'] 
-#     update.message.reply_text(reply)
-
 def memories(update, context):
     db = DbHelper(os.getenv("DATABASE_URL"))
     memory = db.retrieveMemory()
