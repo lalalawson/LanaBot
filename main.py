@@ -14,6 +14,7 @@ load_dotenv()
 
 # states
 CONTENT_REPLY, FILE_REPLY, CHECK = range(3)
+SETUP_REPLY, DELIVERY_REPLY, CONFIRM = range(3, 6)
 
 allowed_users = ["lalalawson", "linawoo"]
 
@@ -31,28 +32,10 @@ def start(update, context):
     if username in allowed_users:
         update.message.reply_text("Hello " + username + "!\n" + \
             "This bot was created to commemorate our first year together 🥳\n" + \
-            "What do you require today? 😚" + \
+            "What do you require today? 😚\n" + \
             "(P.S., you can also upload your own memory via /upload)", reply_markup=reply_keyboard)
     else:
         update.message.reply_text("Sorry " + username + "! This is a private bot so it's not available for your viewing! 😅")
-
-# def test_upload(update, context):
-#     msg = update.message
-#     if msg.photo:
-#         file_id = msg.photo[-1].file_id
-#         msg.reply_photo(file_id)
-#         print(file_id)
-#     elif msg.video:
-#         file_id = msg.video.file_id
-#         msg.reply_video(file_id)
-#     elif msg.voice:
-#         file_id = msg.voice.file_id
-#         msg.reply_voice(file_id)
-#     elif msg.video_note:
-#         file_id = msg.video_note.file_id
-#         msg.reply_video_note(file_id)
-#     else:
-#         update.message.reply_text("Please upload a photo / video / voice or video note! You may select /cancel to exit.")
 
 def upload(update, context):
     update.message.reply_text("Ooo!! Uploading a new memory? 😋 Send me the description of our memory!\n" + \
@@ -190,7 +173,55 @@ def random_joke(update, context):
     time.sleep(1)   
     replied.edit_text("▪️▪️▪️")
     time.sleep(0.7)   
-    pointer.reply_text(delivery) 
+    pointer.reply_text(delivery)
+
+def start_joke_upload(update, context):
+    update.message.reply_text("Think you are funny? 😋 Ok! Share with me your joke! Start with the question!\n" + \
+        "/cancel anytime you want to quit!")
+    return SETUP_REPLY
+
+def setup_upload(update, context):
+    user_info = context.user_data
+    user_info.pop('joke_setup', "")
+    user_info['joke_setup'] = update.message.text
+    update.message.reply_text("Ok! 👌🏼 Now send me the answer to joke!")
+    return DELIVERY_REPLY
+
+def setup_checker(update, context):
+    update.message.reply_text("This is invalid right now! Please submit text only! To quit sharing, /cancel")
+    return SETUP_REPLY
+
+def delivery_upload(update, context):
+    user_info = context.user_data
+    user_info.pop('joke_delivery', "")
+    user_info['joke_delivery'] = update.message.text
+    update.message.reply_text("Wah funny leh....")
+    joke_to_check(update, context)
+    return CONFIRM
+
+def delivery_checker(update, context):
+    update.message.reply_text("This is invalid right now! Please submit text only! To quit sharing, /cancel")
+    return DELIVERY_REPLY
+
+def joke_to_check(update, context):
+    inline_keyboard = [[InlineKeyboardButton("Yes", callback_data="yes"), InlineKeyboardButton("No", callback_data="no")]]
+    update.message.reply_text("Ok! 👌🏼 Is this the joke you wna add to our archive?")
+    pointer = update.message
+    setup = context.user_data['joke_setup']
+    delivery = context.user_data['joke_delivery']
+    pointer.reply_text('Q: ' + setup)
+    pointer.reply_text('A: ' + delivery, reply_markup=InlineKeyboardMarkup(inline_keyboard))
+
+def upload_joke(update, context):
+    query = update.callback_query
+    query.answer()
+    msg = query.message
+    msg.reply_chat_action("upload_document")
+    db = DbHelper(os.getenv("DATABASE_URL"))
+    db.uploadJoke(setup=context.user_data['joke_setup'], delivery=context.user_data['joke_delivery'])
+    msg.reply_text("Joke uploaded successfully! 😉")
+    return ConversationHandler.END
+
 
 def rant(update, context):
     update.message.reply_text("time for a rant")
@@ -225,10 +256,7 @@ def main():
     # commands handler
     dispatcher.add_handler(CommandHandler("start", start))
 
-    # testing only
-    # dispatcher.add_handler(MessageHandler(Filters.photo | Filters.voice | Filters.video | Filters.video_note, test_upload))
-
-    # message handler for invalid options
+    # message handler for illegal users
     dispatcher.add_handler(MessageHandler(~Filters.chat(username=allowed_users), illegal_user))
     
     # convo handlers
@@ -242,10 +270,23 @@ def main():
                         MessageHandler(Filters.all & ~(Filters.photo & Filters.voice & Filters.video & Filters.video_note) & ~Filters.regex('/cancel'), file_checker)],
             CHECK: [CallbackQueryHandler(confirm_upload, pattern="yes"), CallbackQueryHandler(cancel, pattern="no"), MessageHandler(Filters.all & ~Filters.regex('/cancel'), button_flag)]
         },
-        fallbacks=[CommandHandler("cancel", cancel)],
+        fallbacks=[CommandHandler("cancel", cancel)]
     )
     dispatcher.add_handler(upload_convo)
 
+    ## upload joke convo handler
+    joke_convo = ConversationHandler(
+        entry_points=[CommandHandler("share_joke", start_joke_upload)],
+        states={
+            SETUP_REPLY: [MessageHandler(Filters.text & ~Filters.command, setup_upload), 
+                            MessageHandler(Filters.all & ~Filters.regex('/cancel'), setup_checker)],
+            DELIVERY_REPLY: [MessageHandler(Filters.text & ~Filters.command, delivery_upload), 
+                            MessageHandler(Filters.all & ~Filters.regex('/cancel'), delivery_checker)],
+            CONFIRM: [CallbackQueryHandler(upload_joke, pattern="yes"), CallbackQueryHandler(cancel, pattern="no"), MessageHandler(Filters.all & ~Filters.regex('/cancel'), button_flag)]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+    dispatcher.add_handler(joke_convo)
     # message handler for valid options
     ## message handler for sharing of memories
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[0]), memories))
