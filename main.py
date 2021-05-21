@@ -1,4 +1,6 @@
-from datetime import datetime
+import datetime
+import time
+import Joke
 from logging import Filter
 from telegram.ext.callbackqueryhandler import CallbackQueryHandler
 from telegram.message import Message
@@ -153,7 +155,42 @@ def cute(update, context):
     update.message.reply_text("wah cute")
 
 def joke(update, context):
-    update.message.reply_text("joke hahaha joke")
+    inline_keyboard = [[InlineKeyboardButton("Lawson's joke! 👍🏼", callback_data="lawson_joke")], [InlineKeyboardButton("Random joke.. 👎🏼", callback_data="random_joke")]]
+    update.message.reply_text("Seems like you could use a laugh! Shall I hit you up with a joke from Lawson's joke archive or a random joke?",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard))
+    
+def lawson_joke(update, context):
+    query = update.callback_query
+    query.answer()
+    pointer = query.message
+    pointer.reply_chat_action("typing")
+    db = DbHelper(os.getenv("DATABASE_URL"))
+    setup, delivery = db.retrieveJoke()
+    pointer.reply_text(setup)
+    time.sleep(1)
+    replied = pointer.reply_text("❔")
+    time.sleep(1)   
+    replied.edit_text("❔❔")    
+    time.sleep(1)   
+    replied.edit_text("❔❔❔")
+    time.sleep(0.7)   
+    pointer.reply_text(delivery) 
+
+def random_joke(update, context):
+    query = update.callback_query
+    query.answer()
+    pointer = query.message
+    pointer.reply_chat_action("typing")
+    setup, delivery = Joke.random_joke()
+    pointer.reply_text(setup)
+    time.sleep(1)
+    replied = pointer.reply_text("❔")
+    time.sleep(1)   
+    replied.edit_text("❔❔")    
+    time.sleep(1)   
+    replied.edit_text("❔❔❔")
+    time.sleep(0.7)   
+    pointer.reply_text(delivery) 
 
 def rant(update, context):
     update.message.reply_text("time for a rant")
@@ -219,6 +256,8 @@ def main():
 
     ## message handler for sharing of jokes
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[2]), joke))
+    dispatcher.add_handler(CallbackQueryHandler(lawson_joke, pattern="lawson_joke"))
+    dispatcher.add_handler(CallbackQueryHandler(random_joke, pattern="random_joke"))
 
     ## message handler for rants
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[3]), rant))

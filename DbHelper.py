@@ -21,3 +21,11 @@ class DbHelper():
         cur.execute("INSERT INTO memories(author, content, file_id, file_type) VALUES(%s, %s, %s, %s);", (author, content, file_id, file_type))
         self.conn.commit()
         cur.close
+
+    def retrieveJoke(self):
+        cur = self.conn.cursor()
+        cur.execute("SELECT * FROM jokes OFFSET floor(random() * (SELECT COUNT(*) FROM jokes)) LIMIT 1;")
+        joke = cur.fetchone()
+        setup = joke[1]
+        delivery = joke[2]
+        return setup, delivery
