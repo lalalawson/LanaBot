@@ -27,8 +27,9 @@ def start(update, context):
     # perform check on allowed users
     if username in allowed_users:
         update.message.reply_text("Hello " + username + "!\n" + \
-            "This bot was created to commerate our first year together 🥳\n" + \
-            "What do you require today? 😚", reply_markup=reply_keyboard)
+            "This bot was created to commemorate our first year together 🥳\n" + \
+            "What do you require today? 😚" + \
+            "(P.S., you can also upload your own memory via /upload)", reply_markup=reply_keyboard)
     else:
         update.message.reply_text("Sorry " + username + "! This is a private bot so it's not available for your viewing! 😅")
 
@@ -51,47 +52,67 @@ def start(update, context):
 #         update.message.reply_text("Please upload a photo / video / voice or video note! You may select /cancel to exit.")
 
 def upload(update, context):
-    update.message.reply_text("Ooo!! Uploading a new memory? Send me the description of our memory!")
+    update.message.reply_text("Ooo!! Uploading a new memory? Send me the description of our memory!\n" + \
+        "/cancel anytime you want to quit!")
     return CONTENT_REPLY
 
 def content_upload(update, context):
     user_info = context.user_data
     user_info.pop('content_upload', "")
     user_info['content_upload'] = update.message.text
-    update.message.reply_text("Ok! Now send me an image to remember!")
+    update.message.reply_text("Ok! Now send me an image/video/voice/video note to remember!")
     return FILE_REPLY
 
 def file_upload(update, context):
     msg = update.message
     if msg.photo:
         file_id = msg.photo[-1].file_id
-        print(file_id)
+        file_type = 'photo'
     elif msg.video:
         file_id = msg.video.file_id
+        file_type = 'video'
     elif msg.voice:
         file_id = msg.voice.file_id
+        file_type = 'voice'
     elif msg.video_note:
         file_id = msg.video_note.file_id
+        file_type = 'video_note'
     user_info = context.user_data
     user_info.pop('file_upload', "")
+    user_info.pop('file_type', "")
     user_info['file_upload'] = file_id
+    user_info['file_type'] = file_type
     resend_to_check(update, context)
     return CHECK
 
 def resend_to_check(update, context):
     inline_keyboard = [[InlineKeyboardButton("Yes", callback_data="yes"), InlineKeyboardButton("No", callback_data="no")]]
     update.message.reply_text("Ok! Is this what you want to upload?")
-    update.message.reply_text(context.user_data['content_upload'])
-    update.message.reply_photo(context.user_data['file_upload'], reply_markup=InlineKeyboardMarkup(inline_keyboard))
+    pointer = update.message
+    file = context.user_data['file_upload']
+    file_type = context.user_data['file_type']
+    if (file_type == "photo"):
+        pointer.reply_photo(file)
+    elif (file_type == "video"):
+        pointer.reply_video(file)
+    elif (file_type == "voice"):
+        pointer.reply_voice(file)
+    elif (file_type == "video_note"):
+        pointer.reply_video_note(file)
+    pointer.reply_text(context.user_data['content_upload'], reply_markup=InlineKeyboardMarkup(inline_keyboard))
     
-
 def confirm_upload(update, context):
     query = update.callback_query
     query.answer()
     msg = query.message
+    msg.reply_chat_action("upload_document")
     author = update.effective_user.first_name
     db = DbHelper(os.getenv("DATABASE_URL"))
-    db.uploadMemory(author=author, content=context.user_data['content_upload'], file_id=context.user_data['file_upload'], post_date=datetime.now().date(), file_type='photo')
+    db.uploadMemory(author=author, 
+                    content=context.user_data['content_upload'], 
+                    file_id=context.user_data['file_upload'], 
+                    post_date=datetime.now().date(), 
+                    file_type=context.user_data['file_type'])
     msg.reply_text("Memory uploaded successfully!")
     return ConversationHandler.END
 
@@ -107,8 +128,16 @@ def memories(update, context):
     memory = db.retrieveMemory()
     print(memory)
     format_date = memory[4].strftime('%d %b %y')
+    file_type = memory[5]
     reply = "Remember " + format_date + "?\n" + memory[2] + "\n-" + memory[1]
-    pointer.reply_photo(memory[3])
+    if (file_type == "photo"):
+        pointer.reply_photo(memory[3])
+    elif (file_type == "video"):
+        pointer.reply_video(memory[3])
+    elif (file_type == "voice"):
+        pointer.reply_voice(memory[3])
+    elif (file_type == "video_note"):
+        pointer.reply_video_note(memory[3])
     pointer.reply_text(reply, reply_markup=InlineKeyboardMarkup(inline_keyboard))
 
 def cute(update, context):
@@ -134,7 +163,7 @@ def cancel(update, context):
         msg = query.message
     else:
         msg = update.message
-    msg.reply_text("cancelling upload")
+    msg.reply_text("Upload cancelled!")
     return ConversationHandler.END
 
 def main():
