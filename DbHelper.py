@@ -20,7 +20,7 @@ class DbHelper():
         cur = self.conn.cursor()
         cur.execute("INSERT INTO memories(author, content, file_id, file_type) VALUES(%s, %s, %s, %s);", (author, content, file_id, file_type))
         self.conn.commit()
-        cur.close
+        cur.close()
 
     def retrieveJoke(self):
         cur = self.conn.cursor()
@@ -29,3 +29,9 @@ class DbHelper():
         setup = joke[1]
         delivery = joke[2]
         return setup, delivery
+
+    def uploadJoke(self, setup, delivery):
+        cur = self.conn.cursor()
+        cur.execute("INSERT INTO jokes(setup, delivery) VALUES(%s, %s);", (setup, delivery))
+        self.conn.commit()
+        cur.close()
