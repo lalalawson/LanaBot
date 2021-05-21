@@ -1,5 +1,6 @@
+from telegram.ext.callbackqueryhandler import CallbackQueryHandler
 from DbHelper import DbHelper
-from telegram import KeyboardButton, ReplyKeyboardMarkup
+from telegram import KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, ConversationHandler, MessageHandler, Filters
 import os
 from dotenv import load_dotenv
@@ -13,39 +14,39 @@ allowed_users = ["lalalawson", "linawoo"]
 
 message_options = ["Tell me about us.. 😌", "Show me photos! 😆", "Tell me a joke! 😒", "I just wna rant... 😔"]
 
+button_row1 = [KeyboardButton(message_options[0]), KeyboardButton(message_options[1])]
+button_row2 = [KeyboardButton(message_options[2]), KeyboardButton(message_options[3])]
+buttons = [button_row1, button_row2]
+reply_keyboard = ReplyKeyboardMarkup(buttons, one_time_keyboard=True)
+
 def start(update, context):
-    global reply_keyboard 
     username = update.effective_user.username
-    button_row1 = [KeyboardButton(message_options[0]), KeyboardButton(message_options[1])]
-    button_row2 = [KeyboardButton(message_options[2]), KeyboardButton(message_options[3])]
-    buttons = [button_row1, button_row2]
 
     # perform check on allowed users
     if username in allowed_users:
-        reply_keyboard = ReplyKeyboardMarkup(buttons, one_time_keyboard=True)
         update.message.reply_text("Hello " + username + "!\n" + \
             "This bot was created to commerate our first year together 🥳\n" + \
             "What do you require today? 😚", reply_markup=reply_keyboard)
     else:
         update.message.reply_text("Sorry " + username + "! This is a private bot so it's not available for your viewing! 😅")
 
-def test_upload(update, context):
-    msg = update.message
-    if msg.photo:
-        file_id = msg.photo[-1].file_id
-        msg.reply_photo(file_id)
-        print(file_id)
-    elif msg.video:
-        file_id = msg.video.file_id
-        msg.reply_video(file_id)
-    elif msg.voice:
-        file_id = msg.voice.file_id
-        msg.reply_voice(file_id)
-    elif msg.video_note:
-        file_id = msg.video_note.file_id
-        msg.reply_video_note(file_id)
-    else:
-        update.message.reply_text("Please upload a photo / video / voice or video note! You may select /cancel to exit.")
+# def test_upload(update, context):
+#     msg = update.message
+#     if msg.photo:
+#         file_id = msg.photo[-1].file_id
+#         msg.reply_photo(file_id)
+#         print(file_id)
+#     elif msg.video:
+#         file_id = msg.video.file_id
+#         msg.reply_video(file_id)
+#     elif msg.voice:
+#         file_id = msg.voice.file_id
+#         msg.reply_voice(file_id)
+#     elif msg.video_note:
+#         file_id = msg.video_note.file_id
+#         msg.reply_video_note(file_id)
+#     else:
+#         update.message.reply_text("Please upload a photo / video / voice or video note! You may select /cancel to exit.")
 
 def upload(update, context):
     update.message.reply_text("Ooo!! Uploading a new memory? Send me the description of our day!")
@@ -53,12 +54,20 @@ def upload(update, context):
     return CONTENT_REPLY
 
 def memories(update, context):
+    pointer = update.message
+    if (pointer == None):
+        query = update.callback_query
+        query.answer()
+        pointer = query.message
+    inline_keyboard = [[InlineKeyboardButton("Share another one!", callback_data="another")]]
+    pointer.reply_chat_action("typing")
     db = DbHelper(os.getenv("DATABASE_URL"))
     memory = db.retrieveMemory()
     print(memory)
     format_date = memory[4].strftime('%d %b %y')
     reply = "Remember " + format_date + "?\n" + memory[2] + "\n-" + memory[1]
-    update.message.reply_text(reply)
+    pointer.reply_text(reply, reply_markup=InlineKeyboardMarkup(inline_keyboard))
+    pointer.reply_photo(memory[3])
 
 def cute(update, context):
     update.message.reply_text("wah cute")
@@ -86,7 +95,7 @@ def main():
     dispatcher.add_handler(CommandHandler("start", start))
 
     # testing only
-    dispatcher.add_handler(MessageHandler(Filters.photo | Filters.voice | Filters.video | Filters.video_note, test_upload))
+    # dispatcher.add_handler(MessageHandler(Filters.photo | Filters.voice | Filters.video | Filters.video_note, test_upload))
 
     # message handler for invalid options
     dispatcher.add_handler(MessageHandler(~Filters.chat(username=allowed_users), illegal_user))
@@ -97,15 +106,16 @@ def main():
     
     # message handler for valid options
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[0]), memories))
+    dispatcher.add_handler(CallbackQueryHandler(memories, "another"))
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[1]), cute))
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[2]), joke))
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[3]), rant))
 
     # convo handlers
-    # convo1 = ConversationHandler(
-    #     entry_points=[CommandHandler('upload'), upload],
+    # memory_convo = ConversationHandler(
+    #     entry_points=[MessageHandler(Filters.regex(message_options[0]), memories)],
     #     states={
-    #         CONTENT_REPLY(MessageHandler(Filters.text))
+    #         CONTENT_REPLY: (MessageHandler(Filters.text))
     #     },
     #     fallbacks=[],
     # )
