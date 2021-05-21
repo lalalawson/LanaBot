@@ -1,4 +1,6 @@
+from datetime import datetime
 from telegram.ext.callbackqueryhandler import CallbackQueryHandler
+from telegram.message import Message
 from DbHelper import DbHelper
 from telegram import KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, ConversationHandler, MessageHandler, Filters
@@ -8,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # states
-CONTENT_REPLY, PHOTO_REPLY, ANSWER = range(3)
+CONTENT_REPLY, FILE_REPLY, CHECK = range(3)
 
 allowed_users = ["lalalawson", "linawoo"]
 
@@ -49,9 +51,49 @@ def start(update, context):
 #         update.message.reply_text("Please upload a photo / video / voice or video note! You may select /cancel to exit.")
 
 def upload(update, context):
-    update.message.reply_text("Ooo!! Uploading a new memory? Send me the description of our day!")
-
+    update.message.reply_text("Ooo!! Uploading a new memory? Send me the description of our memory!")
     return CONTENT_REPLY
+
+def content_upload(update, context):
+    user_info = context.user_data
+    user_info.pop('content_upload', "")
+    user_info['content_upload'] = update.message.text
+    update.message.reply_text("Ok! Now send me an image to remember!")
+    return FILE_REPLY
+
+def file_upload(update, context):
+    msg = update.message
+    if msg.photo:
+        file_id = msg.photo[-1].file_id
+        print(file_id)
+    elif msg.video:
+        file_id = msg.video.file_id
+    elif msg.voice:
+        file_id = msg.voice.file_id
+    elif msg.video_note:
+        file_id = msg.video_note.file_id
+    user_info = context.user_data
+    user_info.pop('file_upload', "")
+    user_info['file_upload'] = file_id
+    resend_to_check(update, context)
+    return CHECK
+
+def resend_to_check(update, context):
+    inline_keyboard = [[InlineKeyboardButton("Yes", callback_data="yes"), InlineKeyboardButton("No", callback_data="no")]]
+    update.message.reply_text("Ok! Is this what you want to upload?")
+    update.message.reply_text(context.user_data['content_upload'])
+    update.message.reply_photo(context.user_data['file_upload'], reply_markup=InlineKeyboardMarkup(inline_keyboard))
+    
+
+def confirm_upload(update, context):
+    query = update.callback_query
+    query.answer()
+    msg = query.message
+    author = update.effective_user.first_name
+    db = DbHelper(os.getenv("DATABASE_URL"))
+    db.uploadMemory(author=author, content=context.user_data['content_upload'], file_id=context.user_data['file_upload'], post_date=datetime.now().date(), file_type='photo')
+    msg.reply_text("Memory uploaded successfully!")
+    return ConversationHandler.END
 
 def memories(update, context):
     pointer = update.message
@@ -66,8 +108,8 @@ def memories(update, context):
     print(memory)
     format_date = memory[4].strftime('%d %b %y')
     reply = "Remember " + format_date + "?\n" + memory[2] + "\n-" + memory[1]
-    pointer.reply_text(reply, reply_markup=InlineKeyboardMarkup(inline_keyboard))
     pointer.reply_photo(memory[3])
+    pointer.reply_text(reply, reply_markup=InlineKeyboardMarkup(inline_keyboard))
 
 def cute(update, context):
     update.message.reply_text("wah cute")
@@ -85,6 +127,16 @@ def illegal_user(update, context):
 def illegal_option(update, context):
     update.message.reply_text("I'm sorry dear! There's no such option.. 😅 Select a proper one from the reply keyboard!", reply_markup=reply_keyboard)
 
+def cancel(update, context):
+    if update.callback_query:
+        query = update.callback_query
+        query.answer()
+        msg = query.message
+    else:
+        msg = update.message
+    msg.reply_text("cancelling upload")
+    return ConversationHandler.END
+
 def main():
     TOKEN = os.getenv("API_TOKEN")
     updater = Updater(TOKEN, use_context=True)
@@ -99,26 +151,39 @@ def main():
 
     # message handler for invalid options
     dispatcher.add_handler(MessageHandler(~Filters.chat(username=allowed_users), illegal_user))
-    dispatcher.add_handler(MessageHandler(~(Filters.regex(message_options[0]) ^ 
-                                            Filters.regex(message_options[1]) ^ 
-                                            Filters.regex(message_options[2]) ^ 
-                                            Filters.regex(message_options[3])), illegal_option))
     
+    # convo handlers
+    ## uploading memory convo handler
+    upload_convo = ConversationHandler(
+        entry_points=[CommandHandler("upload", upload)],
+        states={
+            CONTENT_REPLY: [MessageHandler(Filters.text & ~Filters.command, content_upload)],
+            FILE_REPLY: [MessageHandler((Filters.photo | Filters.voice | Filters.video | Filters.video_note) & ~Filters.command, file_upload)],
+            CHECK: [CallbackQueryHandler(confirm_upload, pattern="yes"), CallbackQueryHandler(cancel, pattern="no")]
+        },
+        fallbacks=[CommandHandler("cancel", cancel)],
+    )
+    dispatcher.add_handler(upload_convo)
+
     # message handler for valid options
+    ## message handler for sharing of memories
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[0]), memories))
-    dispatcher.add_handler(CallbackQueryHandler(memories, "another"))
+    dispatcher.add_handler(CallbackQueryHandler(memories, pattern="another"))
+
+    ## message handler for sharing of random photos
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[1]), cute))
+
+    ## message handler for sharing of jokes
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[2]), joke))
+
+    ## message handler for rants
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[3]), rant))
 
-    # convo handlers
-    # memory_convo = ConversationHandler(
-    #     entry_points=[MessageHandler(Filters.regex(message_options[0]), memories)],
-    #     states={
-    #         CONTENT_REPLY: (MessageHandler(Filters.text))
-    #     },
-    #     fallbacks=[],
-    # )
+    dispatcher.add_handler(MessageHandler(~(Filters.regex(message_options[0]) ^ 
+                                        Filters.regex(message_options[1]) ^ 
+                                        Filters.regex(message_options[2]) ^ 
+                                        Filters.regex(message_options[3]) ^
+                                        Filters.regex('/upload')), illegal_option))
 
     print("Bot polling...")
     updater.start_polling()
