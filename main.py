@@ -1,4 +1,5 @@
 from datetime import datetime
+from logging import Filter
 from telegram.ext.callbackqueryhandler import CallbackQueryHandler
 from telegram.message import Message
 from DbHelper import DbHelper
@@ -52,7 +53,7 @@ def start(update, context):
 #         update.message.reply_text("Please upload a photo / video / voice or video note! You may select /cancel to exit.")
 
 def upload(update, context):
-    update.message.reply_text("Ooo!! Uploading a new memory? Send me the description of our memory!\n" + \
+    update.message.reply_text("Ooo!! Uploading a new memory? 😋 Send me the description of our memory!\n" + \
         "/cancel anytime you want to quit!")
     return CONTENT_REPLY
 
@@ -60,8 +61,12 @@ def content_upload(update, context):
     user_info = context.user_data
     user_info.pop('content_upload', "")
     user_info['content_upload'] = update.message.text
-    update.message.reply_text("Ok! Now send me an image/video/voice/video note to remember!")
+    update.message.reply_text("Ok! 👌🏼 Now send me an image/video/voice/video note to remember!")
     return FILE_REPLY
+
+def content_checker(update, context):
+    update.message.reply_text("This is invalid right now! Please submit a text only description! To quit upload, /cancel")
+    return CONTENT_REPLY
 
 def file_upload(update, context):
     msg = update.message
@@ -85,9 +90,13 @@ def file_upload(update, context):
     resend_to_check(update, context)
     return CHECK
 
+def file_checker(update, context):
+    update.message.reply_text("This is invalid right now! Please only upload an image/video/voice note/video note!")
+    return FILE_REPLY
+
 def resend_to_check(update, context):
     inline_keyboard = [[InlineKeyboardButton("Yes", callback_data="yes"), InlineKeyboardButton("No", callback_data="no")]]
-    update.message.reply_text("Ok! Is this what you want to upload?")
+    update.message.reply_text("Ok! 👌🏼 Is this what you want to upload?")
     pointer = update.message
     file = context.user_data['file_upload']
     file_type = context.user_data['file_type']
@@ -113,7 +122,7 @@ def confirm_upload(update, context):
                     file_id=context.user_data['file_upload'], 
                     post_date=datetime.now().date(), 
                     file_type=context.user_data['file_type'])
-    msg.reply_text("Memory uploaded successfully!")
+    msg.reply_text("Memory uploaded successfully! 😉")
     return ConversationHandler.END
 
 def memories(update, context):
@@ -166,6 +175,10 @@ def cancel(update, context):
     msg.reply_text("Upload cancelled!")
     return ConversationHandler.END
 
+def button_flag(update, context):
+    update.message.reply_text("Hey! Please only press the yes or no buttons!")
+    return CHECK
+
 def main():
     TOKEN = os.getenv("API_TOKEN")
     updater = Updater(TOKEN, use_context=True)
@@ -186,9 +199,11 @@ def main():
     upload_convo = ConversationHandler(
         entry_points=[CommandHandler("upload", upload)],
         states={
-            CONTENT_REPLY: [MessageHandler(Filters.text & ~Filters.command, content_upload)],
-            FILE_REPLY: [MessageHandler((Filters.photo | Filters.voice | Filters.video | Filters.video_note) & ~Filters.command, file_upload)],
-            CHECK: [CallbackQueryHandler(confirm_upload, pattern="yes"), CallbackQueryHandler(cancel, pattern="no")]
+            CONTENT_REPLY: [MessageHandler(Filters.text & ~Filters.command, content_upload), 
+                            MessageHandler(Filters.all & ~Filters.regex('/cancel'), content_checker)],
+            FILE_REPLY: [MessageHandler((Filters.photo | Filters.voice | Filters.video | Filters.video_note) & ~Filters.command, file_upload), 
+                        MessageHandler(Filters.all & ~(Filters.photo & Filters.voice & Filters.video & Filters.video_note) & ~Filters.regex('/cancel'), file_checker)],
+            CHECK: [CallbackQueryHandler(confirm_upload, pattern="yes"), CallbackQueryHandler(cancel, pattern="no"), MessageHandler(Filters.all & ~Filters.regex('/cancel'), button_flag)]
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
