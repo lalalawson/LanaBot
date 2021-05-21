@@ -1,4 +1,4 @@
-import datetime
+from datetime import date
 import time
 import Joke
 from logging import Filter
@@ -122,7 +122,7 @@ def confirm_upload(update, context):
     db.uploadMemory(author=author, 
                     content=context.user_data['content_upload'], 
                     file_id=context.user_data['file_upload'], 
-                    post_date=datetime.now().date(), 
+                    post_date=date.today(), 
                     file_type=context.user_data['file_type'])
     msg.reply_text("Memory uploaded successfully! 😉")
     return ConversationHandler.END
