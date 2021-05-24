@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime
 import time
 import Joke
 from logging import Filter
@@ -7,14 +7,15 @@ from telegram.message import Message
 from DbHelper import DbHelper
 from telegram import KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, ConversationHandler, MessageHandler, Filters
+from telegram_bot_calendar import DetailedTelegramCalendar, LSTEP
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # states
-CONTENT_REPLY, FILE_REPLY, CHECK = range(3)
-SETUP_REPLY, DELIVERY_REPLY, CONFIRM = range(3, 6)
+CONTENT_REPLY, FILE_REPLY, DATE_REPLY, CHECK = range(4)
+SETUP_REPLY, DELIVERY_REPLY, CONFIRM = range(4, 7)
 
 allowed_users = ["lalalawson", "linawoo"]
 
@@ -72,12 +73,32 @@ def file_upload(update, context):
     user_info.pop('file_type', "")
     user_info['file_upload'] = file_id
     user_info['file_type'] = file_type
-    resend_to_check(update, context)
-    return CHECK
+    # resend_to_check(update, context)
+    calendar, step = DetailedTelegramCalendar().build()
+    update.message.reply_text(f"Select {LSTEP[step]}", reply_markup=calendar)
+    return DATE_REPLY
 
 def file_checker(update, context):
     update.message.reply_text("This is invalid right now! Please only upload an image/video/voice note/video note!")
     return FILE_REPLY
+
+def calendar(update, context):
+    DetailedTelegramCalendar.func()
+    query = update.callback_query
+    query.answer()
+    msg = query.message
+    result, key, step = DetailedTelegramCalendar().process(query.data)
+    if not result and key:
+        msg.edit_text(f"Select {LSTEP[step]}",
+                              reply_markup=key)
+    elif result:
+        context.user_data['date'] = result
+        resend_to_check(query, context)
+        return CHECK
+
+def date_checker(update, context):
+    update.message.reply_text("This is invalid right now! Please select the date, or /cancel to quit!")
+    return DATE_REPLY
 
 def resend_to_check(update, context):
     inline_keyboard = [[InlineKeyboardButton("Yes", callback_data="yes"), InlineKeyboardButton("No", callback_data="no")]]
@@ -93,7 +114,7 @@ def resend_to_check(update, context):
         pointer.reply_voice(file)
     elif (file_type == "video_note"):
         pointer.reply_video_note(file)
-    pointer.reply_text(context.user_data['content_upload'], reply_markup=InlineKeyboardMarkup(inline_keyboard))
+    pointer.reply_text("Date: " + str(context.user_data['date']) + "\n" + context.user_data['content_upload'], reply_markup=InlineKeyboardMarkup(inline_keyboard))
     
 def confirm_upload(update, context):
     query = update.callback_query
@@ -105,7 +126,7 @@ def confirm_upload(update, context):
     db.uploadMemory(author=author, 
                     content=context.user_data['content_upload'], 
                     file_id=context.user_data['file_upload'], 
-                    post_date=date.today(), 
+                    post_date=context.user_data['date'], 
                     file_type=context.user_data['file_type'])
     msg.reply_text("Memory uploaded successfully! 😉")
     return ConversationHandler.END
@@ -268,6 +289,8 @@ def main():
                             MessageHandler(Filters.all & ~Filters.regex('/cancel'), content_checker)],
             FILE_REPLY: [MessageHandler((Filters.photo | Filters.voice | Filters.video | Filters.video_note) & ~Filters.command, file_upload), 
                         MessageHandler(Filters.all & ~(Filters.photo & Filters.voice & Filters.video & Filters.video_note) & ~Filters.regex('/cancel'), file_checker)],
+            DATE_REPLY: [CallbackQueryHandler(calendar), 
+                        MessageHandler(Filters.all & ~Filters.regex('/cancel'), date_checker)],
             CHECK: [CallbackQueryHandler(confirm_upload, pattern="yes"), CallbackQueryHandler(cancel, pattern="no"), MessageHandler(Filters.all & ~Filters.regex('/cancel'), button_flag)]
         },
         fallbacks=[CommandHandler("cancel", cancel)]

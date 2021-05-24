@@ -18,7 +18,7 @@ class DbHelper():
 
     def uploadMemory(self, author, content, file_id, post_date, file_type):
         cur = self.conn.cursor()
-        cur.execute("INSERT INTO memories(author, content, file_id, file_type) VALUES(%s, %s, %s, %s);", (author, content, file_id, file_type))
+        cur.execute("INSERT INTO memories(author, content, file_id, post_date, file_type) VALUES(%s, %s, %s, %s, %s);", (author, content, file_id, post_date, file_type))
         self.conn.commit()
         cur.close()
 
