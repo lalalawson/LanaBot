@@ -26,6 +26,9 @@ button_row2 = [KeyboardButton(message_options[2]), KeyboardButton(message_option
 buttons = [button_row1, button_row2]
 reply_keyboard = ReplyKeyboardMarkup(buttons, one_time_keyboard=True)
 
+last_memories_id =  []
+last_joke_id = []
+
 def start(update, context):
     username = update.effective_user.username
 
@@ -141,19 +144,27 @@ def memories(update, context):
     pointer.reply_chat_action("typing")
     db = DbHelper(os.getenv("DATABASE_URL"))
     memory = db.retrieveMemory()
-    print(memory)
-    format_date = memory[4].strftime('%d %b %y')
-    file_type = memory[5]
-    reply = "Remember " + format_date + "?\n" + memory[2] + "\n-" + memory[1]
-    if (file_type == "photo"):
-        pointer.reply_photo(memory[3])
-    elif (file_type == "video"):
-        pointer.reply_video(memory[3])
-    elif (file_type == "voice"):
-        pointer.reply_voice(memory[3])
-    elif (file_type == "video_note"):
-        pointer.reply_video_note(memory[3])
-    pointer.reply_text(reply, reply_markup=InlineKeyboardMarkup(inline_keyboard))
+    while (memory[0] in last_memories_id):
+        print("just shared recently, picking another memory")
+        memory = db.retrieveMemory()
+    else:
+        print(memory)
+        if (len(last_memories_id) > 2):
+            last_memories_id.pop(0)
+        last_memories_id.append(memory[0])
+        format_date = memory[4].strftime('%d %b %y')
+        file_type = memory[5]
+        reply = "Remember " + format_date + "?\n" + memory[2] + "\n-" + memory[1]
+        if (file_type == "photo"):
+            pointer.reply_photo(memory[3])
+        elif (file_type == "video"):
+            pointer.reply_video(memory[3])
+        elif (file_type == "voice"):
+            pointer.reply_voice(memory[3])
+        elif (file_type == "video_note"):
+            pointer.reply_video_note(memory[3])
+        pointer.reply_text(reply, reply_markup=InlineKeyboardMarkup(inline_keyboard))
+
 
 def cute(update, context):
     update.message.reply_text("wah cute")
