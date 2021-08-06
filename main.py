@@ -1,5 +1,6 @@
 from datetime import datetime
 import time
+from typing import Text
 import Joke
 from logging import Filter
 from telegram.ext.callbackqueryhandler import CallbackQueryHandler
@@ -10,24 +11,28 @@ from telegram.ext import Updater, CommandHandler, ConversationHandler, MessageHa
 from telegram_bot_calendar import DetailedTelegramCalendar, LSTEP
 import os
 from dotenv import load_dotenv
+from RantResponse import RantResponse
 
 load_dotenv()
 
 # states
 CONTENT_REPLY, FILE_REPLY, DATE_REPLY, CHECK = range(4)
 SETUP_REPLY, DELIVERY_REPLY, CONFIRM = range(4, 7)
+RANTING_TIME, END = range(7,9)
 
 allowed_users = ["lalalawson", "linawoo"]
 
-message_options = ["Tell me about us.. 😌", "Show me photos! 😆", "Tell me a joke! 😒", "I just wna rant... 😔"]
+message_options = ["Tell me about us.. 😌", "Tell me a joke! 😒", "I just wna rant... 😔"]
 
-button_row1 = [KeyboardButton(message_options[0]), KeyboardButton(message_options[1])]
-button_row2 = [KeyboardButton(message_options[2]), KeyboardButton(message_options[3])]
+button_row1 = [KeyboardButton(message_options[0])]
+button_row2 = [KeyboardButton(message_options[1]), KeyboardButton(message_options[2])]
 buttons = [button_row1, button_row2]
 reply_keyboard = ReplyKeyboardMarkup(buttons, one_time_keyboard=True)
 
 last_memories_id =  []
 last_joke_id = []
+
+rant_reply = RantResponse()
 
 def start(update, context):
     username = update.effective_user.username
@@ -254,9 +259,21 @@ def upload_joke(update, context):
     msg.reply_text("Joke uploaded successfully! 😉")
     return ConversationHandler.END
 
+def start_rant(update, context):
+    update.message.reply_text("Ono.. did I make you upset... 😔 No worries! If real lawson is being rude to u can secretly rant to me!\n" + \
+        "Click or type /done anytime you are done venting!")
+    rant_reply = RantResponse()
+    return RANTING_TIME
 
 def rant(update, context):
-    update.message.reply_text("time for a rant")
+    pointer = update.message
+    if (pointer == None):
+        query = update.callback_query
+        query.answer()
+        pointer = query.message
+    pointer.reply_chat_action("typing")
+    time.sleep(1)
+    pointer.reply_text(rant_reply.get_response())
 
 def illegal_user(update, context):
     username = update.effective_user.username
@@ -273,6 +290,16 @@ def cancel(update, context):
     else:
         msg = update.message
     msg.reply_text("Upload cancelled!")
+    return ConversationHandler.END
+
+def done(update, context):
+    if update.callback_query:
+        query = update.callback_query
+        query.answer()
+        msg = query.message
+    else:
+        msg = update.message
+    msg.reply_text("OK! I hope it was a good rant! Rmb to let the real me know where I went wrong so I can do better hehe. Love u!")
     return ConversationHandler.END
 
 def button_flag(update, context):
@@ -321,26 +348,36 @@ def main():
         fallbacks=[CommandHandler("cancel", cancel)],
     )
     dispatcher.add_handler(joke_convo)
+
+    ## upload rant convo handler
+    rant_convo = ConversationHandler(
+        entry_points=[MessageHandler(Filters.regex(message_options[2]), start_rant)],
+        states={
+            RANTING_TIME: [MessageHandler(Filters.all & ~Filters.command, rant)]
+        },
+        fallbacks=[CommandHandler("done", done)],
+    )
+    dispatcher.add_handler(rant_convo)
+
     # message handler for valid options
     ## message handler for sharing of memories
     dispatcher.add_handler(MessageHandler(Filters.regex(message_options[0]), memories))
     dispatcher.add_handler(CallbackQueryHandler(memories, pattern="another"))
 
     ## message handler for sharing of random photos
-    dispatcher.add_handler(MessageHandler(Filters.regex(message_options[1]), cute))
+    #dispatcher.add_handler(MessageHandler(Filters.regex(message_options[1]), cute))
 
     ## message handler for sharing of jokes
-    dispatcher.add_handler(MessageHandler(Filters.regex(message_options[2]), joke))
+    dispatcher.add_handler(MessageHandler(Filters.regex(message_options[1]), joke))
     dispatcher.add_handler(CallbackQueryHandler(lawson_joke, pattern="lawson_joke"))
     dispatcher.add_handler(CallbackQueryHandler(random_joke, pattern="random_joke"))
 
     ## message handler for rants
-    dispatcher.add_handler(MessageHandler(Filters.regex(message_options[3]), rant))
+    #dispatcher.add_handler(MessageHandler(Filters.regex(message_options[2]), rant))
 
     dispatcher.add_handler(MessageHandler(~(Filters.regex(message_options[0]) ^ 
                                         Filters.regex(message_options[1]) ^ 
                                         Filters.regex(message_options[2]) ^ 
-                                        Filters.regex(message_options[3]) ^
                                         Filters.regex('/upload')), illegal_option))
 
     print("Bot polling...")
